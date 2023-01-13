@@ -5,10 +5,11 @@ import tkinter.font as font
 import pandas as pd
 import os
 import glob
+import argparse
 
 window = Tk()
 window.geometry("1000x600")        # window size
-col = ['Idx', 'Name', 'A', 'HSM', 'C', 'Cut', 'Wire', 'None', 'path', 'labeled']
+col = ['Idx', 'Name', 'A', 'HSM', 'C', 'Cut', 'Wire', 'None', 'Path', 'Labeled']
  
 class GUI(Frame):
     def __init__(self, master=None):
@@ -31,12 +32,32 @@ class GUI(Frame):
         self.app_outline()
 
     def call_img_list(self):
-        all_images = glob.glob('C:\\Users\\minj2\\GUI\\A'+'\\'+'*.png')
+        all_images = []
+
+        train_images = glob.glob('D:\\IMAGE\\Python_IMAGE_DEPTH_COLOR\\Train'+'\\'+'*.png')
+        test_images = glob.glob('D:\\IMAGE\\Python_IMAGE_DEPTH_COLOR\\Test'+'\\'+'*.png')
+        
+        for img in train_images:
+            if '_005.png' in img or '_009.png' in img:
+                pass
+            else:
+                all_images.append(img)
+
+        for img in test_images:
+            if '_005.png' in img or '_009.png' in img:
+                pass
+            else:
+                all_images.append(img)
+        
+        print('='*30)
+        print(f'\nThe Number of total image data: {len(all_images)}\n')        
+        print('='*30)
+
         return all_images
 
     def create_DF(self):
-        if os.path.exists(".//labeled_data.csv"):
-            data = pd.read_csv("./labeled_data.csv")
+        if os.path.exists(".\\labeled_data.csv"):
+            data = pd.read_csv(".\\labeled_data.csv")
             self.last_idx   = data.iloc[-1,0]
             self.img_index  = data.iloc[-1,0]
         else:
@@ -65,6 +86,11 @@ class GUI(Frame):
 
         btn4 = Label(window, width=1, height=5)
         btn4.pack(side='left', anchor='s', expand=False)
+
+        count_label = Label(window, text=f'[{self.img_index} || {len(self.img_list)}]')
+        count_label.config(font=(self.GUI_font ,13, 'bold'))
+        count_label.pack(side='top',anchor='ne', expand=True)
+        self.base_btn_list.append(count_label)
 
     def app_outline(self):
         for i in range(8):
@@ -160,6 +186,7 @@ class GUI(Frame):
             self.Save_Label()
             self.img_index -= 1
             if self.img_index >= 0:
+                self.base_btn_list[-1].config(text=f'{self.img_index}||{len(self.img_list)}')
                 self.Reset_button()
                 self.select_Previous()  # 이전 이미지 셋팅.
         
@@ -168,7 +195,9 @@ class GUI(Frame):
             self.Save_Label()
             self.Reset_button()
             self.img_index += 1
-            self.select_Next()
+            if self.img_index < len(self.img_list):
+                self.base_btn_list[-1].config(text=f'{self.img_index}||{len(self.img_list)}')
+                self.select_Next()
             
         elif idx == 100:
             # Start
@@ -177,12 +206,12 @@ class GUI(Frame):
 
         elif idx == 77:
             # Save
-            self.df.to_csv(path_or_buf=".//labeled_data.csv", index=False) # df row cvs 저장
+            self.df.to_csv(path_or_buf=".\\labeled_data.csv", index=False) # df row cvs 저장
             return
 
         elif idx == -1:
             # close
-            self.df.to_csv(path_or_buf=".//labeled_data.csv", index=False) # df row cvs 저장
+            self.df.to_csv(path_or_buf=".\\labeled_data.csv", index=False) # df row cvs 저장
             window.destroy()
 
         else:
@@ -199,6 +228,8 @@ class GUI(Frame):
                     self.state[idx] = False
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--data', type=str, default='.\\')
     app = GUI()
     app.master.title("Classification Labeling")
     app.mainloop()

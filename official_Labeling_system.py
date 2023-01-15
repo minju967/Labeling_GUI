@@ -60,6 +60,9 @@ class GUI(Frame):
             data = pd.read_csv(".\\labeled_data.csv")
             self.last_idx   = data.iloc[-1,0]
             self.img_index  = data.iloc[-1,0]
+
+            if self.last_idx == len(data) -1:
+                self.img_index = 0
         else:
             data = pd.DataFrame(columns=col)
             self.img_index = 0

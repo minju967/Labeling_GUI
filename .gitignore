@@ -1,0 +1,8 @@
+/IMAGE/TEST/*.png
+/IMAGE/Train/*.png
+official_Labeling_system copy.py
+test.ipynb
+ReadME
+*.iml
+*.xml
+*.csv

@@ -1,6 +1,7 @@
 from tkinter import * 
 from PIL import Image, ImageTk
 from functools import partial
+from pathlib import Path
 import tkinter.font as font
 import pandas as pd
 import os
@@ -9,10 +10,12 @@ import argparse
 
 window = Tk()
 window.geometry("1000x600")        # window size
-col = ['Idx', 'Name', 'A', 'HSM', 'C', 'Cut', 'Wire', 'None', 'Path', 'Labeled']
- 
+col = ['Name', 'A', 'HSM', 'C', 'Cut', 'Wire', 'None', 'Path', 'Labeled']
+
+
+
 class GUI(Frame):
-    def __init__(self, master=None):
+    def __init__(self, args, master=None):
         super().__init__(master)
         self.pack()
         self.button_list    = []
@@ -21,55 +24,45 @@ class GUI(Frame):
         self.df             = None
         self.img_index      = 0
         self.last_idx       = 0
-        self.img_list       = self.call_img_list()
+        self.file_name      = f"{args.data}_label.csv"
+
         self.GUI_font       = font.Font(family='맑은 고딕')   
         self.label          = Button(window, text='', width=5, height=3)
-        self.button         = ['Preview', 'A', 'HSM', 'C', 'Cut', 'Wire', 'None', 'Next']
+        self.button         = ['Previous', 'A', 'HSM', 'C', 'Cut', 'Wire', 'None', 'Next']
         self.btn_clr        = ['#4444f2', '#65eb34', '#65eb34', '#65eb34', '#f2aa44', '#f2aa44', '#f2aa44', '#4444f2']
+
+        dir_img_list        = os.listdir(f'.\\IMAGE\\{args.data}')
+        dir_img_list.sort()
+        labeled_imgs        = self.create_DF()        
+
+        if labeled_imgs:
+            for img in labeled_imgs:
+                dir_img_list.remove(img)
+            labeled_imgs.extend(dir_img_list)
+            self.img_list = labeled_imgs
+        else:
+            self.img_list = dir_img_list
+
+        self.img_list = [os.path.join(f'.\\IMAGE\\{args.data}', img) for img in self.img_list]
         
-        self.create_DF()
-        self.app_base()
-        self.app_outline()
-
-    def call_img_list(self):
-        all_images = []
-
-        train_images = glob.glob('D:\\IMAGE\\Python_IMAGE_DEPTH_COLOR\\Train'+'\\'+'*.png')
-        test_images = glob.glob('D:\\IMAGE\\Python_IMAGE_DEPTH_COLOR\\Test'+'\\'+'*.png')
-        
-        for img in train_images:
-            if '_005.png' in img or '_009.png' in img:
-                pass
-            else:
-                all_images.append(img)
-
-        for img in test_images:
-            if '_005.png' in img or '_009.png' in img:
-                pass
-            else:
-                all_images.append(img)
-        
-        print('='*30)
-        print(f'\nThe Number of total image data: {len(all_images)}\n')        
-        print('='*30)
-
-        return all_images
+        self.app_base()                 # GUI 기본 Setting
+        self.app_outline()              # Button Setting
 
     def create_DF(self):
-        if os.path.exists(".\\labeled_data.csv"):
-            data = pd.read_csv(".\\labeled_data.csv")
-            self.last_idx   = data.iloc[-1,0]
-            self.img_index  = data.iloc[-1,0]
-
-            if self.last_idx == len(data) -1:
-                self.img_index = 0
+        if os.path.exists(f".\\LABEL\\{self.file_name}"):
+            data = pd.read_csv(f".\\LABEL\\{self.file_name}")
+            last_idx   = data.iloc[-1,0] 
+            labeled_images = data.iloc[:,1].to_list()
+            index = last_idx + 1
         else:
             data = pd.DataFrame(columns=col)
-            self.img_index = 0
-            self.last_idx  = 0
+            index = 0
+            labeled_images = None
 
         self.df = data
-        return
+        self.img_index = index
+
+        return  labeled_images
 
     def app_base(self):
         start_btn = Button(window, text='Start', width=5, height=3, bg='yellow', font=(self.GUI_font, 12, 'bold'), fg='black', state='normal')
@@ -90,7 +83,7 @@ class GUI(Frame):
         btn4 = Label(window, width=1, height=5)
         btn4.pack(side='left', anchor='s', expand=False)
 
-        count_label = Label(window, text=f'[{self.img_index} || {len(self.img_list)}]')
+        count_label = Label(window, text=f'[{self.img_index+1} || {len(self.img_list)}]')
         count_label.config(font=(self.GUI_font ,13, 'bold'))
         count_label.pack(side='top',anchor='ne', expand=True)
         self.base_btn_list.append(count_label)
@@ -102,43 +95,59 @@ class GUI(Frame):
             btn.configure(command=partial(self.select_button, btn, i))
             self.button_list.append(btn)
 
-    def set_btn(self):
-        row_data = self.df.iloc[self.img_index,2:8]
-        img_label = list(row_data)
+    def set_btn(self, img_name):
+        Img_name = img_name
+        if Img_name in self.df['Name'].to_list():
+            val = self.df[self.df['Name']==Img_name].values.tolist()[0]
+            img_label = val[1:7]
+            self.state = [False] * 8
         
-        self.state = [False] * 8
-        
-        for i in range(1,7):
-            if img_label[i-1] == 1:
-                self.button_list[i].config(bg="light gray")
-                self.state[i] = True
-            else:
-                pass
+            for i in range(1,7):
+                if img_label[i-1] == 1:
+                    self.button_list[i].config(bg="light gray")
+                    self.state[i] = True
+                else:
+                    pass
+        else:
+            self.state = [False] * 8
+
 
     def Save_Label(self):
+        if self.img_index < 0 or self.img_index >= len(self.img_list):
+            return
+        
         label = [int(i) for i in self.state[1:7]]
 
         if sum(label) == 0:
             labeled = False
         else:
             labeled = True
-            
+        
+        Img_name = self.img_list[self.img_index].split('\\')[-1]
+        img_path = self.img_list[self.img_index]
+
         data  = []
-        data.append(self.img_index)
-        data.append(self.img_list[self.img_index].split('\\')[-1])
+        # data.append(self.img_index)
+        data.append(Img_name)  # image name
         data.extend(label)
-        data.append(self.img_list[self.img_index])
-        data.append(labeled)
+        data.append(img_path)  # image path
+        data.append(labeled)    
 
-        if self.img_index in list(self.df['Idx']):
-            ex_label = list(self.df.loc[self.img_index])
 
-            if ex_label == label:
-                pass
+        if Img_name in list(self.df['Name']):
+            img_idx  = self.df[self.df['Name']==Img_name].index.values[0]
+            img_data = self.df.iloc[img_idx]
+            ex_label = img_data.values.tolist()[0][2:8]
+            if ex_label != label:
+                self.df.drop(img_idx, axis=0, inplace=True)
+                new_row = pd.DataFrame([data], columns=col)
+                self.df = pd.concat([self.df, new_row], ignore_index=True)
             else:
-                self.df.loc[self.img_index] = data
+                self.df.sort_values('Name')
+
         else:
-            self.df = self.df.append(pd.DataFrame([data], columns=col), ignore_index=True)            
+            new_row = pd.DataFrame([data], columns=col)
+            self.df = pd.concat((self.df, new_row), ignore_index=True)   
         return 
 
     def Reset_button(self):
@@ -163,58 +172,69 @@ class GUI(Frame):
         label1.place(relx=0.25, rely=0.02)
 
     def select_Next(self):
-        if self.img_index <= self.last_idx:
-            self.show_image(self.img_index)
-            self.set_btn()
-
-        else:
-            self.show_image(self.img_index)
-            self.last_idx = self.img_index
+        img_name = self.img_list[self.img_index].split('\\')[-1]
+        self.show_image(self.img_index)
+        self.set_btn(img_name)
 
     def select_Previous(self):
+        img_name = self.img_list[self.img_index].split('\\')[-1]
         self.show_image(self.img_index)
-        self.set_btn()
+        self.set_btn(img_name)
         return
 
     def initial_btn(self):
         for i in range(8):
-            self.button_list[i].config(state=NORMAL)
-        self.base_btn_list[0].config(state=DISABLED)
-        self.base_btn_list[1].config(state=NORMAL)
-        self.base_btn_list[2].config(state=NORMAL)
+            self.button_list[i].config(state=NORMAL)    # 공정 button 활성화
+        self.base_btn_list[0].config(state=DISABLED)    # Start: 비활성화
+        self.base_btn_list[1].config(state=NORMAL)      # Save: 활성화
+        self.base_btn_list[2].config(state=NORMAL)      # Close: 활성화
 
     def select_button(self, button, idx):
         if idx == 0:
-            # Preview
+            # Previous
             self.Save_Label()
+
             self.img_index -= 1
-            if self.img_index >= 0:
-                self.base_btn_list[-1].config(text=f'{self.img_index}||{len(self.img_list)}')
+
+            if self.img_index < 0:
+                self.img_index = 0
+            else:
+                self.base_btn_list[-1].config(text=f'{self.img_index + 1}||{len(self.img_list)}')
                 self.Reset_button()
                 self.select_Previous()  # 이전 이미지 셋팅.
-        
+    
         elif idx == 7:
             # Next
             self.Save_Label()
-            self.Reset_button()
+
             self.img_index += 1
-            if self.img_index < len(self.img_list):
-                self.base_btn_list[-1].config(text=f'{self.img_index}||{len(self.img_list)}')
+            if self.img_index > len(self.img_list) - 1:
+                self.img_index = len(self.img_list) - 1
+            else:
+                self.base_btn_list[-1].config(text=f'{self.img_index + 1}||{len(self.img_list)}')
+                self.Reset_button()
                 self.select_Next()
-            
+        
         elif idx == 100:
-            # Start
+            # Start --> Labeling 시작
             self.initial_btn()
-            self.show_image(self.img_index)
+            self.show_image(self.img_index) # create_DF 에서 설정한 self.img_index 
+            img_name = self.img_list[self.img_index].split('\\')[-1]
+            self.set_btn(img_name)
 
         elif idx == 77:
             # Save
-            self.df.to_csv(path_or_buf=".\\labeled_data.csv", index=False) # df row cvs 저장
+            save_data = self.df[self.df['Labeled']==True]
+            save_data.sort_values('Name')
+            save_data.reset_index(drop=True)
+            save_data.to_csv(path_or_buf=f"LABEL\\{self.file_name}", index=True) # df row cvs 저장
             return
 
         elif idx == -1:
             # close
-            self.df.to_csv(path_or_buf=".\\labeled_data.csv", index=False) # df row cvs 저장
+            save_data = self.df[self.df['Labeled']==True]
+            save_data.reset_index()
+            save_data.to_csv(path_or_buf=f"LABEL\\{self.file_name}", index=True) # df row cvs 저장
             window.destroy()
 
         else:
@@ -232,8 +252,11 @@ class GUI(Frame):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--data', type=str, default='.\\')
-    app = GUI()
+    parser.add_argument('--data', type=str, default='train1')
+    parser.add_argument('--refer', type=str, default=None)
+    args = parser.parse_args()
+
+    app = GUI(args)
     app.master.title("Classification Labeling")
     app.mainloop()
 

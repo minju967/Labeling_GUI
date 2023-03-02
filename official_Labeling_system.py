@@ -12,8 +12,6 @@ window = Tk()
 window.geometry("1000x600")        # window size
 col = ['Name', 'A', 'HSM', 'C', 'Cut', 'Wire', 'None', 'Path', 'Labeled']
 
-
-
 class GUI(Frame):
     def __init__(self, args, master=None):
         super().__init__(master)
@@ -44,7 +42,7 @@ class GUI(Frame):
             self.img_list = dir_img_list
 
         self.img_list = [os.path.join(f'.\\IMAGE\\{args.data}', img) for img in self.img_list]
-        
+
         self.app_base()                 # GUI 기본 Setting
         self.app_outline()              # Button Setting
 
@@ -54,6 +52,7 @@ class GUI(Frame):
             last_idx   = data.iloc[-1,0] 
             labeled_images = data.iloc[:,1].to_list()
             index = last_idx + 1
+            data = data.iloc[:,1:]
         else:
             data = pd.DataFrame(columns=col)
             index = 0
@@ -83,6 +82,11 @@ class GUI(Frame):
         btn4 = Label(window, width=1, height=5)
         btn4.pack(side='left', anchor='s', expand=False)
 
+        fname_label = Label(window, text=f'{self.img_list[self.img_index]}'.split('\\')[-1])
+        fname_label.config(font=(self.GUI_font ,13))
+        fname_label.pack(side='top',anchor='ne', expand=False)
+        self.base_btn_list.append(fname_label)
+
         count_label = Label(window, text=f'[{self.img_index+1} || {len(self.img_list)}]')
         count_label.config(font=(self.GUI_font ,13, 'bold'))
         count_label.pack(side='top',anchor='ne', expand=True)
@@ -111,6 +115,19 @@ class GUI(Frame):
         else:
             self.state = [False] * 8
 
+    def call_image(self, idx):
+        image = Image.open(self.img_list[idx])
+        image = image.resize((500,500))
+        return image
+    
+    def show_image(self, idx):
+        image = self.call_image(idx)
+        img = ImageTk.PhotoImage(image)
+
+        label1 = Label(image=img)
+        label1.image = img
+
+        label1.place(relx=0.25, rely=0.02)
 
     def Save_Label(self):
         if self.img_index < 0 or self.img_index >= len(self.img_list):
@@ -136,15 +153,16 @@ class GUI(Frame):
 
         if Img_name in list(self.df['Name']):
             img_idx  = self.df[self.df['Name']==Img_name].index.values[0]
-            img_data = self.df.iloc[img_idx]
-            ex_label = img_data.values.tolist()[0][2:8]
+            # img_data = self.df.iloc[img_idx]
+            # ex_label = img_data.values.tolist()[2:8]
+            ex_label = self.df.iloc[img_idx].values.tolist()[2:8]
+
             if ex_label != label:
                 self.df.drop(img_idx, axis=0, inplace=True)
                 new_row = pd.DataFrame([data], columns=col)
                 self.df = pd.concat([self.df, new_row], ignore_index=True)
             else:
-                self.df.sort_values('Name')
-
+                self.df = self.df.sort_values('Name')
         else:
             new_row = pd.DataFrame([data], columns=col)
             self.df = pd.concat((self.df, new_row), ignore_index=True)   
@@ -157,20 +175,6 @@ class GUI(Frame):
             self.state[idx] = False
         return
     
-    def call_image(self, idx):
-        image = Image.open(self.img_list[idx])
-        image = image.resize((500,500))
-        return image
-    
-    def show_image(self, idx):
-        image = self.call_image(idx)
-        img = ImageTk.PhotoImage(image)
-
-        label1 = Label(image=img)
-        label1.image = img
-
-        label1.place(relx=0.25, rely=0.02)
-
     def select_Next(self):
         img_name = self.img_list[self.img_index].split('\\')[-1]
         self.show_image(self.img_index)
@@ -193,7 +197,6 @@ class GUI(Frame):
         if idx == 0:
             # Previous
             self.Save_Label()
-
             self.img_index -= 1
 
             if self.img_index < 0:
@@ -206,7 +209,6 @@ class GUI(Frame):
         elif idx == 7:
             # Next
             self.Save_Label()
-
             self.img_index += 1
             if self.img_index > len(self.img_list) - 1:
                 self.img_index = len(self.img_list) - 1
@@ -218,7 +220,7 @@ class GUI(Frame):
         elif idx == 100:
             # Start --> Labeling 시작
             self.initial_btn()
-            self.show_image(self.img_index) # create_DF 에서 설정한 self.img_index 
+            self.show_image(self.img_index)         # create_DF 에서 설정한 self.img_index 
             img_name = self.img_list[self.img_index].split('\\')[-1]
             self.set_btn(img_name)
 
@@ -227,13 +229,17 @@ class GUI(Frame):
             save_data = self.df[self.df['Labeled']==True]
             save_data.sort_values('Name')
             save_data.reset_index(drop=True)
+            print(save_data)
+            print()
             save_data.to_csv(path_or_buf=f"LABEL\\{self.file_name}", index=True) # df row cvs 저장
             return
 
         elif idx == -1:
             # close
             save_data = self.df[self.df['Labeled']==True]
-            save_data.reset_index()
+            save_data = save_data.sort_values('Name')
+            save_data = save_data.reset_index()
+            save_data = save_data.drop(['index'], axis='columns')
             save_data.to_csv(path_or_buf=f"LABEL\\{self.file_name}", index=True) # df row cvs 저장
             window.destroy()
 
@@ -253,8 +259,10 @@ class GUI(Frame):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--data', type=str, default='train1')
-    parser.add_argument('--refer', type=str, default=None)
     args = parser.parse_args()
+
+    if not os.path.exists('.\\LABEL'):
+        os.makedirs('.\\LABEL')
 
     app = GUI(args)
     app.master.title("Classification Labeling")

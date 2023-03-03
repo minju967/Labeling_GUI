@@ -31,7 +31,7 @@ class GUI(Frame):
 
         dir_img_list        = os.listdir(f'.\\IMAGE\\{args.data}')
         dir_img_list.sort()
-        labeled_imgs        = self.create_DF()        
+        labeled_imgs        = self.create_DF(len(dir_img_list))        
 
         if labeled_imgs:
             for img in labeled_imgs:
@@ -46,13 +46,15 @@ class GUI(Frame):
         self.app_base()                 # GUI 기본 Setting
         self.app_outline()              # Button Setting
 
-    def create_DF(self):
+    def create_DF(self, all):
         if os.path.exists(f".\\LABEL\\{self.file_name}"):
             data = pd.read_csv(f".\\LABEL\\{self.file_name}")
             last_idx   = data.iloc[-1,0] 
             labeled_images = data.iloc[:,1].to_list()
             index = last_idx + 1
             data = data.iloc[:,1:]
+            if last_idx == all -1:
+                index = last_idx
         else:
             data = pd.DataFrame(columns=col)
             index = 0
